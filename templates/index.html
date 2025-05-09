@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UPI Scam Detection</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: linear-gradient(to right, #0f0f0f, #2c2c2c);
+      font-family: 'Segoe UI', sans-serif;
+      color: #f0f0f0;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    .glass-card {
+      background: rgba(33, 33, 33, 0.5);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 500px;
+      margin: auto;
+      margin-top: 50px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    input, select, option {
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 1px solid #555 !important;
+      color: #f0f0f0 !important;
+    }
+
+    input::placeholder {
+      color: #ccc !important;
+    }
+
+    select option {
+      background-color: #1a1a1a;
+      color: #f0f0f0;
+    }
+
+    .btn-primary, .btn-success {
+      background-color: #007bff;
+      border: none;
+      transition: background 0.3s;
+    }
+
+    .btn-primary:hover, .btn-success:hover {
+      background-color: #0056b3;
+    }
+
+    .toggle-link {
+      color: #0dcaf0;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .fade-out {
+      opacity: 0.2;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .result-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 100vw;
+      background-color: rgba(15, 15, 15, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .result-overlay h2 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    .result-overlay .icon {
+      font-size: 3rem;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      display: block;
+      margin: 0 auto 20px;
+      max-width: 80px;
+    }
+
+    .logout-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container position-relative {% if show_result %}fade-out{% endif %}">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mt-4">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="glass-card" id="main-form">
+      {% if not show_form %}
+        <h3 class="text-center mb-3"><i class="fas fa-shield-alt me-2"></i>UPI Scam Detection</h3>
+
+        <!-- Register Form -->
+        <form method="POST" id="register-form" class="form-section">
+          <input type="hidden" name="register" value="1">
+          <div class="mb-2">
+            <label for="name" class="form-label">Name</label>
+            <input type="text" id="name" name="name" class="form-control" placeholder="Enter your full name" required>
+          </div>
+          <div class="mb-2">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email" required>
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" id="password" name="password" class="form-control" placeholder="Choose a strong password" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="fas fa-user-plus me-1"></i>Register</button>
+          <p class="text-center mt-2">Already have an account? <span class="toggle-link" onclick="toggleForms()">Login</span></p>
+        </form>
+
+        <!-- Login Form -->
+        <form method="POST" id="login-form" class="form-section hidden">
+          <input type="hidden" name="login" value="1">
+          <div class="mb-2">
+            <label for="login-email" class="form-label">Email</label>
+            <input type="email" id="login-email" name="email" class="form-control" placeholder="Enter your email" required>
+          </div>
+          <div class="mb-3">
+            <label for="login-password" class="form-label">Password</label>
+            <input type="password" id="login-password" name="password" class="form-control" placeholder="Enter your password" required>
+          </div>
+          <button type="submit" class="btn btn-success w-100"><i class="fas fa-sign-in-alt me-1"></i>Login</button>
+          <p class="text-center mt-2">New user? <span class="toggle-link" onclick="toggleForms()">Register</span></p>
+        </form>
+
+      {% else %}
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-danger logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <h4 class="text-center mb-4"><i class="fas fa-search-dollar me-2"></i>Check UPI Transaction</h4>
+
+        <form method="POST" class="form-section" id="transaction-form">
+          <div class="mb-2">
+            <label for="upi-number" class="form-label">UPI Number</label>
+            <input type="text" id="upi-number" name="upi_number" class="form-control" placeholder="Enter UPI number" required>
+          </div>
+          <div class="mb-2">
+            <label for="upi-holder-name" class="form-label">UPI Holder Name</label>
+            <input type="text" id="upi-holder-name" name="upi_holder_name" class="form-control" placeholder="Enter UPI holder name" required>
+          </div>
+
+          <div class="mb-2">
+            <label for="state" class="form-label">State/UT</label>
+            <select id="state" name="state" class="form-control" required>
+              <option value="">-- Select State/UT --</option>
+              {% for s in [ 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 
+              'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 
+              'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 
+              'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 
+              'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 
+              'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 
+              'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry' ] %}
+                <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-2">
+            <label for="pin-code" class="form-label">PIN Code</label>
+            <input type="text" id="pin-code" name="pin_code" class="form-control" placeholder="Enter PIN code" required>
+          </div>
+
+          <div class="mb-2">
+            <label for="datetime" class="form-label">Transaction Date & Time</label>
+            <input type="datetime-local" id="datetime" name="datetime" class="form-control" required>
+          </div>
+
+          <div class="mb-2">
+            <label for="transaction-amount" class="form-label">Transaction Amount</label>
+            <input type="number" step="0.01" id="transaction-amount" name="transaction_amount" class="form-control" placeholder="Enter amount" required>
+          </div>
+
+          <div class="mb-2">
+            <label for="seller-name" class="form-label">Seller Name</label>
+            <input type="text" id="seller-name" name="seller_name" class="form-control" placeholder="Enter seller's name" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="merchant-category" class="form-label">Merchant Category</label>
+            <select id="merchant-category" name="merchant_category" class="form-control" required>
+              <option value="">-- Select Merchant Category --</option>
+              {% for m in ['Retail', 'Electronics', 'Food', 'Fashion', 'Travel', 'Recharge', 'Education', 'Medical'] %}
+                <option value="{{ m }}">{{ m }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-1"></i>Check Transaction</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if show_result %}
+    <div class="result-overlay">
+      {% if scam_probability >= 0.4 %}
+        <div class="icon text-success"><i class="fas fa-check-circle"></i></div>
+        <h2>This transaction <strong>seems valid</strong>.</h2>
+        <p>Scam probability: <strong>{{ '%.2f'|format(scam_probability * 100) }}%</strong></p>
+      {% else %}
+        <div class="icon text-success"><i class="fas fa-check-circle"></i></div>
+        <h2>This transaction <strong>seems valid</strong>.</h2>
+        <p>Scam probability: <strong>{{ '%.2f'|format(scam_probability * 100) }}%</strong></p>
+      {% endif %}
+      <a href="{{ url_for('form') }}" class="btn btn-light mt-4"><i class="fas fa-arrow-left me-1"></i>Back to Form</a>
+    </div>
+{% endif %}
+
+
+  <script>
+    function toggleForms() {
+      document.getElementById("register-form").classList.toggle("hidden");
+      document.getElementById("login-form").classList.toggle("hidden");
+    }
+  </script>
+</body>
+</html>
